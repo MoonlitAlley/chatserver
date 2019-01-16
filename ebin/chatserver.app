@@ -1,0 +1,12 @@
+{application,chatserver,
+             [{description,"The distribute chatServer"},
+              {vsn,"1.0"},
+              {modules,[accept_gen,broadcast_gen,chatserver_app,
+                        chatserver_supervisor,listen_gen,my_alarm_handler,
+                        roommanager_gen]},
+              {registered,[listen_gen,accept_gen,broadcast_gen,
+                           roommanager_gen,chatserver_supervisor]},
+              {applications,[kernel,stdlib]},
+              {mod,{chatserver_app,[]}},
+              {start_phases,[]},
+              {env,[]}]}.
