@@ -9,8 +9,8 @@
 {application, chatserver, [
   {description, "The distribute chatServer"},
   {vsn, "1.0"},
-  {modules , [ chatserver_app , chatserver_supervisor , listen_gen , accept_gen, broadcast_gen,roommanager_gen,my_alarm_handle] },
-  {registered, [ listen_gen , accept_gen , broadcast_gen  ,roommanager_gen, chatserver_supervisor]},
+  {modules , [ chatserver_app , chatserver_supervisor , listen_gen , accept_gen, userdata_gen,roommanager_gen,my_alarm_handle] },
+  {registered, [ listen_gen , accept_gen , userdata_gen,roommanager_gen, chatserver_supervisor]},
   {applications, [
     kernel,
     stdlib

@@ -6,7 +6,7 @@
 %%% @end
 %%% Created : 12. 一月 2019 14:28
 %%%-------------------------------------------------------------------
--module(broadcast_gen).
+-module(userdata_gen).
 -author("song saifei").
 
 -define(SERVER , ?MODULE).

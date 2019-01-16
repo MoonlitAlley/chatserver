@@ -13,7 +13,7 @@
 -export([start_link/0]).
 %%gen_server回调函数
 -export([init/1,handle_call/3,handle_cast/2,handle_info/2,terminate/2,code_change/3]).
--import(broadcast_gen,[start_broadcast/0]).
+-import(userdata_gen,[start_broadcast/0]).
 -import(accept_gen, [start_accept/2]).
 -import(roommanager_gen,[start_roommanager/0]).
 
@@ -29,7 +29,7 @@ init([]) ->
     {ok,Listen} =  gen_tcp:listen( 6789 , [ binary ,{packet , 4} ,{active , true}]),
     io:format("Start Listen , Port : 6789~n"),
     %广播服务器 ->用户登录校验
-    {ok,BroadCastPid} = broadcast_gen:start_broadcast(),
+    {ok,BroadCastPid} = userdata_gen:start_broadcast(),
     %房间管理 ->聊天室列表、聊天室内在线成员
     {ok , RoomManagerPid} = roommanager_gen:start_roommanager(),
     self() ! accept,
