@@ -13,15 +13,12 @@
 -export([start_roommanager/0]).
 %%gen_server回调函数
 -export([init/1,handle_call/3,handle_cast/2,handle_info/2,terminate/2,code_change/3]).
+-include("records.hrl").
 
 -record(room ,{
   id ,
   number,
   talker =[] }).
-
--record(user,{
-  id, username, socket,
-  msg_type, msg}).
 
 start_roommanager() ->
     gen_server:start_link( { local ,?SERVER} ,?MODULE , [],[]).

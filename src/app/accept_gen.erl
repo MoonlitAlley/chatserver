@@ -13,16 +13,16 @@
 -export([start_accept/2]).
 %%gen_server回调函数
 -export([init/1,handle_call/3,handle_cast/2,handle_info/2,terminate/2,code_change/3]).
-
+-include("records.hrl").
+-define( false ,false).
+-define(true , true).
 -record(client, {
     socket, broadcastPid,
     roomManagerPid,
     id, username,
     %是否登陆成功, 之后的操作仅需检验该值
     is_login = false}).
--record(user,{
-    id , username, socket,
-    msg_type, msg}).
+
 
 start_accept(BroadCastPid,RoomManagerPid ) ->
     gen_server:start_link(?MODULE , [BroadCastPid,RoomManagerPid],[] ).
@@ -31,7 +31,7 @@ init([BroadCastPid,RoomManagerPid]) ->
     io:format("start_accept:init~n"),
     {ok,#client{broadcastPid = BroadCastPid,roomManagerPid = RoomManagerPid}}.
 
-handle_info({tcp, Socket ,Bin} , Client ) ->
+handle_info({tcp, Socket ,Bin} , #client{is_login = LoginState} = Client) when LoginState == ?false ->
 
     {RecvType ,RecvId , RecvUN,RecvMsg} = binary_to_term(Bin),
     io:format("it is ~p:~p:~p:~p~n",[RecvType ,RecvId , RecvUN,RecvMsg]),
@@ -63,6 +63,17 @@ handle_info({tcp, Socket ,Bin} , Client ) ->
                 _ ->
                     {noreply , Client}
             end;
+        _ ->
+            {noreply ,Client}
+    end;
+
+handle_info({tcp, Socket ,Bin} ,  #client{is_login = LoginState} = Client) when LoginState == ?true ->
+
+    {RecvType ,RecvId , RecvUN,RecvMsg} = binary_to_term(Bin),
+    io:format("it is ~p:~p:~p:~p~n",[RecvType ,RecvId , RecvUN,RecvMsg]),
+    User = #user{id = RecvId , username = RecvUN , socket = Socket,msg_type = RecvType,msg = RecvMsg},
+
+    case RecvType of
         logout->
             case gen_server:call(broadcast_gen, {logout, User}) of
                 {success , Des}  ->
@@ -79,8 +90,8 @@ handle_info({tcp, Socket ,Bin} , Client ) ->
                     Client#client.roomManagerPid ! {chat , {RecvId , RecvUN} ,UserTemp },
                     {noreply , Client};
                 _ ->
-                  gen_tcp:send(Socket , term_to_binary("please login at first")),
-                  {noreply , Client}
+                    gen_tcp:send(Socket , term_to_binary("please login at first")),
+                    {noreply , Client}
             end;
         _ ->
             {noreply ,Client}
