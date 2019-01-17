@@ -27,8 +27,8 @@ init([]) ->
     RoomList = [],
     {ok,RoomList}.
 
-handle_info({chat , {Options , RecvRoomId} ,User } , RoomList) ->
-    case Options of
+handle_info({chat , {ActionCode , RecvRoomId} ,User } , RoomList) ->
+    case ActionCode of
         listRoom ->
             %所有房间的列表信息中ID，和人数提取出来，回复给客户端
             change_send(User#user.socket , RoomList,[]),
