@@ -74,18 +74,19 @@ get_message(Binary) ->
         ?chat ->
           MsgLength = Length - 4 -4 -4,
           ResidueLength = Count -4 -Length,
-          <<ActionCode:32 , RoomID:32 , Msg:MsgLength/binary , _Other:ResidueLength/binary>> = Last,
-          {RequestCode , ActionCode , RoomID , Msg};
+          <<ActionCode:32 , RoomID:32 , Msg:MsgLength/binary , Other:ResidueLength/binary>> = Last,
+          { {RequestCode , ActionCode , RoomID , Msg} , Other};
         _ ->
-          {false}
+          {false,<<>>}
       end;
     _ ->
-      {false}
+      {false,<<>>}
   end.
 
 get_result(RequestCode ,Count , Length , Last) ->
   UserNameLength = Length - 4 -4,
   ResidueLength = Count - 4 - Length,
-  <<UserID:32 , UserNameBin:UserNameLength/binary , _Other:ResidueLength/binary>> = Last,
+  <<UserID:32 , UserNameBin:UserNameLength/binary , Other:ResidueLength/binary>> = Last,
   UserName = binary_to_list(UserNameBin),
-  {RequestCode , UserID , UserName}.
+
+  {{RequestCode , UserID , UserName} , Other}.

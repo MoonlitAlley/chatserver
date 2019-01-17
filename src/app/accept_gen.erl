@@ -31,6 +31,7 @@
     socket, broadcastPid,
     roomManagerPid,
     id, username,
+    bin,
     %是否登陆成功, 之后的操作仅需检验该值
     is_login = false}).
 
@@ -42,9 +43,58 @@ init([BroadCastPid,RoomManagerPid]) ->
     io:format("start_accept:init~n"),
     {ok,#client{broadcastPid = BroadCastPid,roomManagerPid = RoomManagerPid}}.
 
+
+
 handle_info({tcp, Socket ,Bin} , #client{is_login = LoginState} = Client) when LoginState == ?false ->
 
-    case get_message(Bin) of
+    NewClient = Client#client{socket = Socket},
+    case get_message(Bin)  of
+        {Package , <<>>} ->
+            recursion_login_false(Package , NewClient);
+
+        {Package , Next} ->
+            {_ , ClientFianl} = recursion_login_false(Package ,NewClient),
+            handle_info({tcp , Socket , Next} , ClientFianl);
+
+        _ ->
+            {noreply , Client}
+    end;
+
+handle_info({tcp, Socket ,Bin} ,  #client{is_login = LoginState} = Client) when LoginState == ?true ->
+
+    NewClient = Client#client{socket = Socket},
+    case get_message(Bin)  of
+        {Package , <<>>} ->
+            recursion_login_true(Package ,NewClient);
+
+        {Package ,Next} ->
+            {_ , ClientFianl} = recursion_login_true(Package ,NewClient),
+            handle_info({tcp , Socket , Next} , ClientFianl);
+        
+        _ ->
+            {noreply , Client}
+    end;
+
+handle_info({tcp_closed, Socket} , Client ) ->
+    case gen_server:call(broadcast_gen, {logout, #user{id = Client#client.id }}) of
+        {success , Des}  ->
+            gen_tcp:send(Socket , term_to_binary(Des)),
+            {noreply , Client#client{is_login = false}};
+        _ ->
+            {noreply , Client}
+    end.
+
+%断开连接的处理
+handle_call(_Request,_From,State) -> {noreply , State}.
+handle_cast(_Msg ,State ) -> {noreply , State}.
+terminate(_Reason ,_State) -> ok.
+code_change(_OldVsn , State, _Extra) -> {ok , State}.
+
+
+
+
+recursion_login_false(Package , #client{socket = Socket} = Client) ->
+    case Package of
         {?register , RecvId, RecvUN}->
             User = #user{id = RecvId , username = RecvUN , socket = Socket},
             %注册该账号，并检查返回结果，将结果通过Socket回复给客户端
@@ -74,11 +124,10 @@ handle_info({tcp, Socket ,Bin} , #client{is_login = LoginState} = Client) when L
             end;
         _ ->
             {noreply ,Client}
-    end;
+    end.
 
-handle_info({tcp, Socket ,Bin} ,  #client{is_login = LoginState} = Client) when LoginState == ?true ->
-
-    case get_message(Bin) of
+recursion_login_true(Package , #client{socket = Socket} = Client) ->
+    case Package of
         {?logout,RecvId ,RecvUN} ->
             User = #user{id = RecvId , username = RecvUN , socket = Socket},
             case gen_server:call(broadcast_gen, {logout, User}) of
@@ -101,60 +150,13 @@ handle_info({tcp, Socket ,Bin} ,  #client{is_login = LoginState} = Client) when 
             end;
         _ ->
             {noreply ,Client}
-    end;
-
-
-handle_info({tcp_closed, Socket} , Client ) ->
-    case gen_server:call(broadcast_gen, {logout, #user{id = Client#client.id }}) of
-        {success , Des}  ->
-            gen_tcp:send(Socket , term_to_binary(Des)),
-            {noreply , Client#client{is_login = false}};
-        _ ->
-            {noreply , Client}
     end.
 
-%断开连接的处理
-handle_call(_Request,_From,State) -> {noreply , State}.
-handle_cast(_Msg ,State ) -> {noreply , State}.
-terminate(_Reason ,_State) -> ok.
-code_change(_OldVsn , State, _Extra) -> {ok , State}.
 
-%%handle_info({tcp, Socket ,Bin} , #client{is_login = LoginState} = Client) when LoginState == ?false ->
+
 %%
-%%    {RecvType ,RecvId , RecvUN,RecvMsg} = binary_to_term(Bin),
-%%    io:format("it is ~p:~p:~p:~p~n",[RecvType ,RecvId , RecvUN,RecvMsg]),
-%%    User = #user{id = RecvId , username = RecvUN , socket = Socket,msg_type = RecvType,msg = RecvMsg},
-%%case RecvType of
-%%register->
-%%%注册该账号，并检查返回结果，将结果通过Socket回复给客户端
-%%case gen_server:call(broadcast_gen,{register , User}) of
-%%{success , Des} ->
-%%gen_tcp:send(Socket , term_to_binary({success , Des})),
-%%{noreply ,Client};
-%%{faile , Why } ->
-%%gen_tcp:send(Socket , term_to_binary({faile , Why })),
-%%{noreply ,Client};
-%%_ ->
-%%io:format("no pattern in accept_gen handle_info:register~n"),
-%%{noreply ,Client}
-%%end;
-%%login->
-%%case gen_server:call(broadcast_gen, {login, User}) of
-%%{success ,Des} ->
-%%%将本连接中的User状态修改为在线状态，后续发送消息无验证
-%%gen_tcp:send(Socket , term_to_binary({success , Des})),
-%%{noreply , Client#client{socket = Socket , id = RecvId , username = RecvUN , is_login = true}};
-%%{faile,Reason} ->
-%%gen_tcp:send(Socket , term_to_binary({faile , Reason})),
-%%{noreply,Client};
-%%_ ->
-%%{noreply , Client}
-%%end;
-%%_ ->
-%%{noreply ,Client}
-%%end;
-
-%%handle_info({tcp, Socket ,Bin} ,  #client{is_login = LoginState} = Client) when LoginState == ?true ->
+%%
+%%handle_info({tcp, Socket ,Bin} , Client)  ->
 %%
 %%    {RecvType ,RecvId , RecvUN,RecvMsg} = binary_to_term(Bin),
 %%    io:format("it is ~p:~p:~p:~p~n",[RecvType ,RecvId , RecvUN,RecvMsg]),
@@ -180,6 +182,31 @@ code_change(_OldVsn , State, _Extra) -> {ok , State}.
 %%                    gen_tcp:send(Socket , term_to_binary("please login at first")),
 %%                    {noreply , Client}
 %%            end;
+%%        register->
+%%%注册该账号，并检查返回结果，将结果通过Socket回复给客户端
+%%            case gen_server:call(broadcast_gen,{register , User}) of
+%%                {success , Des} ->
+%%                    gen_tcp:send(Socket , term_to_binary({success , Des})),
+%%                    {noreply ,Client};
+%%                {faile , Why } ->
+%%                    gen_tcp:send(Socket , term_to_binary({faile , Why })),
+%%                    {noreply ,Client};
+%%                _ ->
+%%                    io:format("no pattern in accept_gen handle_info:register~n"),
+%%                    {noreply ,Client}
+%%            end;
+%%        login->
+%%            case gen_server:call(broadcast_gen, {login, User}) of
+%%                {success ,Des} ->
+%%%将本连接中的User状态修改为在线状态，后续发送消息无验证
+%%                    gen_tcp:send(Socket , term_to_binary({success , Des})),
+%%                    {noreply , Client#client{socket = Socket , id = RecvId , username = RecvUN , is_login = true}};
+%%                {faile,Reason} ->
+%%                    gen_tcp:send(Socket , term_to_binary({faile , Reason})),
+%%                    {noreply,Client};
+%%                _ ->
+%%                    {noreply ,Client}
+%%                end;
 %%        _ ->
 %%            {noreply ,Client}
-%%    end;
+%%    end.
